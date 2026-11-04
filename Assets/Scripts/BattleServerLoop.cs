@@ -34,6 +34,7 @@ public class BattleServerLoop : MonoBehaviour
             var snap = new SnapshotDto
             {
                 tick = CurrentTick,
+                roomId = roomId,
                 players = ServerWorld.BuildPlayerStates(roomId),
                 enemies = ServerWorld.BuildEnemyStates(roomId)
             };

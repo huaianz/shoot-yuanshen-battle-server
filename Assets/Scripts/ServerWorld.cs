@@ -19,6 +19,7 @@ public class ServerPlayerState
     public float Yaw;
     public int Hp = 100;
     public int AnimId;            // 最近上报的动作编号
+    public int WeaponId = -1;     // 当前装备武器模板 id
     public long LastInputMs;      // 最近输入时间戳(校验用)
     public InputCommandDto Input; // 最近一次输入
     public readonly List<PosSample> History = new List<PosSample>();  // 位置历史(回溯用)
@@ -71,7 +72,11 @@ public static class ServerWorld
             exist.RoomId = roomId;
             exist.Pos = pos;
             exist.Yaw = yaw;
-            Debug.Log($"[ServerWorld] 玩家 {username}(id={playerId}) 重连到房间 {roomId}");
+
+            // 换房时新连接可能比旧连接断开先到, 这里也要登记新房间
+            ServerEnemyRegistry.RegisterRoom(roomId, pos);
+
+            Debug.Log($"[ServerWorld] 玩家 {username}(id={playerId}) 重连到房间 {roomId}, conn={connId}");
             return playerId;
         }
 
@@ -84,10 +89,11 @@ public static class ServerWorld
             Pos = pos,
             Yaw = yaw
         };
-        Debug.Log($"[ServerWorld] 玩家 {username}(id={playerId}) 加入房间 {roomId}, 当前 {PlayerCount} 人");
+        Debug.Log($"[ServerWorld] 玩家 {username}(id={playerId}) 加入房间 {roomId}, conn={connId}, 当前 {PlayerCount} 人");
 
         // 房间第一次进人: 刷一波怪
-        ServerEnemyRegistry.EnsureRoom(roomId, pos);
+        // 只登记房间, 不立刻刷怪; 等玩家点"开始挑战"
+        ServerEnemyRegistry.RegisterRoom(roomId, pos);
 
         return playerId;
     }
@@ -129,6 +135,7 @@ public static class ServerWorld
         if (!_playersById.TryGetValue(playerId, out var p)) return;
         p.Input = input;
         p.AnimId = input.animId;
+        p.WeaponId = input.weaponId;
 
         if (!ServerAuthoritativeMovement)
         {
@@ -175,9 +182,11 @@ public static class ServerWorld
                 }
 
                 p.Pos = reported;
-                p.Yaw = input.yaw;
                 AppendHistory(p);
             }
+
+            // 朝向独立更新: 位置被拒也不该把转身一起丢掉
+            p.Yaw = input.yaw;
             p.LastInputMs = input.clientTimeMs;
         }
     }
@@ -242,6 +251,7 @@ public static class ServerWorld
                 yaw = p.Yaw,
                 anim = "Idle",
                 animId = p.AnimId,
+                weaponId = p.WeaponId,
                 hp = p.Hp
             });
         }
@@ -312,11 +322,13 @@ public static class ServerWorld
 
     #region 开火与延迟补偿
     public static bool RewindEnabled = true;   // 延迟补偿开关
+    public static bool PvPDeathEnabled = true; // 实验用: false 时玩家不会被真正打死
     public static int RewindPaddingMs = 100;   // 客户端插值延迟补偿（其他客户端本地会把网络位置延迟约 100ms 渲染，通过补偿回溯这部分来防止打到却没有伤害的问题）
     public static int WeaponDamage = 25;       // P3 固定伤害(P4 再按武器表算)
     public const float HitRadius = 0.45f;      // 命中圆柱半径
     public const float HitHeight = 1.8f;       // 命中圆柱高度
     public const float MaxFireDistance = 300f;//子弹飞行最远距离
+    public const float ShotVisualDistance = 40f; // 未命中时子弹视觉飞行距离
 
     private static long NowMs() => System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();//返回当前UTC 毫秒时间戳
 
@@ -348,6 +360,36 @@ public static class ServerWorld
             if (d < bestDiff) { bestDiff = d; best = p.History[i].Pos; }
         }
         return best;
+    }
+
+    /// <summary>
+    /// 不同体型的敌人用不同的判定体(史莱姆矮宽, 石头人高宽)
+    /// </summary>
+    private static void GetEnemyHitShape(ServerEnemy e, out float radius, out float height)
+    {
+        switch (e.Kind)
+        {
+            case 1:   // 石头人
+                radius = 1.05f;
+                height = 2.60f;
+                break;
+
+            case 2:   // 史莱姆
+                radius = 0.95f;
+                height = 0.90f;
+                break;
+
+            default:  // 丘丘人
+                radius = EnemyHitRadius;
+                height = EnemyHitHeight;
+                break;
+        }
+
+        if (e.IsElite)
+        {
+            radius *= 1.4f;
+            height *= 1.25f;
+        }
     }
 
     /// <summary>
@@ -462,8 +504,7 @@ public static class ServerWorld
         {
             if (e.Hp <= 0) continue;
 
-            float radius = e.IsElite ? EnemyHitRadius * 1.4f : EnemyHitRadius;
-            float height = e.IsElite ? EnemyHitHeight * 1.25f : EnemyHitHeight;
+            GetEnemyHitShape(e, out float radius, out float height);
 
             if (RayVsCapsule(origin, dir, MaxFireDistance, e.Pos, radius, height, out float d)
                 && d < bestDist)
@@ -475,7 +516,13 @@ public static class ServerWorld
             }
         }
 
-        if (bestPlayerId == 0 && bestEnemyId == 0)
+        bool didHit = bestPlayerId != 0 || bestEnemyId != 0;
+
+        // 广播弹道给同房间其他玩家(自己的子弹由本地表现)
+        Vector3 shotEnd = didHit ? bestHit : origin + dir * ShotVisualDistance;
+        BroadcastPlayerShot(shooter, shotEnd, didHit);
+
+        if (!didHit)
         {
             Debug.Log($"[Fire] {shooter.Username} 未命中 (回溯 {rewindMs}ms)");
             return;
@@ -539,7 +586,14 @@ public static class ServerWorld
         var target = _playersById[bestPlayerId];
         target.Hp -= damage;
         bool isKill = target.Hp <= 0;
-        if (isKill)
+
+        if (isKill && !PvPDeathEnabled)
+        {
+            // 实验模式: 血量卡在 1, 避免死亡后 3 秒空窗污染命中率统计
+            target.Hp = 1;
+            isKill = false;
+        }
+        else if (isKill)
         {
             target.Hp = 0;
             target.RespawnAtMs = now + 3000;
@@ -560,6 +614,24 @@ public static class ServerWorld
             hitZ = bestHit.z
         };
         BattleServerNetwork.Instance.BroadcastToRoom(shooter.RoomId, BattleMsgId.Damage, JsonUtility.ToJson(res));
+    }
+
+    /// <summary>把玩家这一次开火的弹道广播给同房间其他人</summary>
+    private static void BroadcastPlayerShot(ServerPlayerState shooter, Vector3 end, bool hit)
+    {
+        // 表现层从角色胸口发出, 而不是相机位置(相机在别人眼里是悬空的)
+        Vector3 visualStart = new Vector3(shooter.Pos.x, shooter.Pos.y + 1.35f, shooter.Pos.z);
+
+        var dto = new PlayerShotDto
+        {
+            shooterId = shooter.PlayerId,
+            weaponId = shooter.WeaponId,
+            ox = visualStart.x, oy = visualStart.y, oz = visualStart.z,
+            ex = end.x, ey = end.y, ez = end.z,
+            hit = hit
+        };
+        BattleServerNetwork.Instance.BroadcastToRoom(
+            shooter.RoomId, BattleMsgId.PlayerShot, JsonUtility.ToJson(dto));
     }
 
     /// <summary>
@@ -666,6 +738,21 @@ public static class ServerWorld
     public static int GetMatchCoins(int playerId)
     {
         return _playersById.TryGetValue(playerId, out var p) ? p.MatchCoins : 0;
+    }
+
+    /// <summary>客户端点击"开始挑战": 由服务器决定是否开波</summary>
+    public static void RequestStartWave(int playerId)
+    {
+        if (!_playersById.TryGetValue(playerId, out var p)) return;
+        if (string.IsNullOrEmpty(p.RoomId)) return;
+
+        if (!ServerEnemyRegistry.StartWave(p.RoomId))
+        {
+            Debug.Log($"[ServerWorld] 玩家 {p.Username} 请求开波被忽略(已开始或未登记)");
+            return;
+        }
+
+        Debug.Log($"[ServerWorld] 玩家 {p.Username} 触发房间 {p.RoomId} 开波");
     }
 
     public const int WaveClearReward = 15;

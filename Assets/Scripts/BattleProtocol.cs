@@ -18,6 +18,8 @@ public static class BattleMsgId
     public const int Reward = 411;        // S→C 击杀金币奖励
     public const int Buy = 412;           // C→S 购买请求
     public const int BuyResult = 413;     // S→C 购买结果
+    public const int StartWave = 414;     // C→S 请求开始挑战(刷第一波)
+    public const int PlayerShot = 415;    // S→C 玩家开火弹道(给别人看)
 }
 
 public static class BattlePack

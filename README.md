@@ -34,9 +34,25 @@
 
 # 指定端口
 & ".\BattleServer.exe" -nographics -logFile - -port 7777
+
+# 延迟补偿对比实验: 同时开启 PvP 不死模式(目标血量卡在 1, 不会死亡)
+& ".\BattleServer.exe" -nographics -logFile - -nopvpdeath
 ```
 
 启动日志里会打印 `tickRate=20` 和 `RewindEnabled=True/False`，用它确认参数是否生效。
+
+## 延迟补偿实验
+
+四组对照，用于论文的命中率对比：
+
+| 组 | 服务器参数 | 客户端注入延迟 |
+|---|---|---|
+| A | 默认 | 0 ms |
+| B | 默认 | 100 ms |
+| C | `-norewind` | 100 ms |
+| D | `-norewind` | 200 ms |
+
+每组都应加 `-nopvpdeath`，且靶标需要横向移动，否则测不出差异。每 5 秒输出的 `[Stats]` 行给出累计开火数、命中数与命中率。
 
 ## 协议
 

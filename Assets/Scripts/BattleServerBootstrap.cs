@@ -24,8 +24,14 @@ public static class BattleServerBootstrap
                 ServerWorld.RewindEnabled = false;
                 Debug.Log("[BattleServer] 延迟补偿已关闭(-norewind)");
             }
+            if (a == "-nopvpdeath")
+            {
+                ServerWorld.PvPDeathEnabled = false;
+                Debug.Log("[BattleServer] PvP 不死模式已开启(-nopvpdeath)");
+            }
         }
         Debug.Log($"[BattleServer] RewindEnabled={ServerWorld.RewindEnabled}");
+        Debug.Log($"[BattleServer] PvPDeathEnabled={ServerWorld.PvPDeathEnabled}");
     }
 
     private static int ParsePort(int def)

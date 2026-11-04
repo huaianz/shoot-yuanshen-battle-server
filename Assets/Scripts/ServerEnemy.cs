@@ -53,18 +53,39 @@ public static class ServerEnemyRegistry
 
     public static int CurrentWave(string roomId)
     {
-        return _waveNo.TryGetValue(roomId, out int w) ? w : 1;
+        return _waveNo.TryGetValue(roomId, out int w) ? w : 0;
     }
 
-    public static void EnsureRoom(string roomId, Vector3 center)
+    /// <summary>登记房间(只记录刷怪中心, 不刷怪), 等玩家点"开始挑战"再刷</summary>
+    public static void RegisterRoom(string roomId, Vector3 center)
     {
         if (string.IsNullOrEmpty(roomId)) return;
         if (_spawnedRooms.Contains(roomId)) return;
 
         _spawnedRooms.Add(roomId);
         _waveCenter[roomId] = center;
+        _waveNo[roomId] = 0;   // 0 = 尚未开始
+    }
+
+    /// <summary>玩家点击开始挑战: 只有还没开始时才会刷第一波</summary>
+    public static bool StartWave(string roomId)
+    {
+        if (!_spawnedRooms.Contains(roomId))
+        {
+            Debug.LogWarning($"[ServerEnemy] 房间 {roomId} 尚未登记, 无法开波");
+            return false;
+        }
+
+        if (CurrentWave(roomId) > 0)
+        {
+            Debug.Log($"[ServerEnemy] 房间 {roomId} 已经开波, 忽略重复请求");
+            return false;
+        }
+
+        Vector3 center = _waveCenter.TryGetValue(roomId, out var c) ? c : Vector3.zero;
         _waveNo[roomId] = 1;
         SpawnWave(roomId, center, 1);
+        return true;
     }
 
     public static void SpawnWave(string roomId, Vector3 center, int wave)

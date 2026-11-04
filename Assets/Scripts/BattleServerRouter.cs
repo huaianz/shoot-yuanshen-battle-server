@@ -25,6 +25,7 @@ public static class BattleServerRouter
                         roomId = roomId,
                         tick = BattleServerLoop.Instance.CurrentTick,
                         matchCoins = ServerWorld.GetMatchCoins(playerId),
+                        wave = ServerEnemyRegistry.CurrentWave(roomId),
                         players = ServerWorld.BuildPlayerStates(roomId)
                     };
                     BattleServerNetwork.Instance.Send(conn, BattleMsgId.JoinAccepted, JsonUtility.ToJson(accepted));
@@ -57,6 +58,12 @@ public static class BattleServerRouter
                     if (conn.PlayerId <= 0) return;
                     var req = JsonUtility.FromJson<BuyRequestDto>(json);
                     ServerWorld.HandleBuy(conn.PlayerId, req);
+                    break;
+                }
+            case BattleMsgId.StartWave:
+                {
+                    if (conn.PlayerId <= 0) return;
+                    ServerWorld.RequestStartWave(conn.PlayerId);
                     break;
                 }
             default:

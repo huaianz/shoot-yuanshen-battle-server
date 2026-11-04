@@ -25,6 +25,7 @@ public class InputCommandDto
     public long clientTimeMs;   // 客户端时间戳
     public float x, y, z;
     public int animId;          // 动作状态
+    public int weaponId;        // 当前武器模板 id(-1 = 没装备)
     public bool teleport;       // 传送落地, 跳过距离校验
 }
 
@@ -38,6 +39,7 @@ public class PlayerStateDto
     public float x, y, z, yaw;
     public string anim = "Idle";
     public int animId;
+    public int weaponId;
     public int hp;
 }
 
@@ -62,6 +64,7 @@ public class EnemyStateDto
 public class SnapshotDto
 {
     public int tick;    //逻辑帧，保证玩家之间的同步
+    public string roomId;
     public List<PlayerStateDto> players = new List<PlayerStateDto>();
     public List<EnemyStateDto> enemies = new List<EnemyStateDto>();
 }
@@ -76,6 +79,7 @@ public class JoinAcceptedDto
     public string roomId;
     public int tick;
     public int matchCoins;      // 本局已有金币(重连时恢复显示)
+    public int wave;            // 当前波次, 0=还没开始
     public List<PlayerStateDto> players = new List<PlayerStateDto>();
 }
 
@@ -145,6 +149,17 @@ public class EnemyShotDto
     public int enemyId;
     public float fx, fy, fz;   // 起点
     public float tx, ty, tz;   // 终点
+    public bool hit;
+}
+
+/// <summary>玩家开火弹道(用于其他客户端显示)</summary>
+[Serializable]
+public class PlayerShotDto
+{
+    public int shooterId;
+    public int weaponId;
+    public float ox, oy, oz;
+    public float ex, ey, ez;
     public bool hit;
 }
 
