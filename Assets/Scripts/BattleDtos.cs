@@ -10,6 +10,8 @@ public class JoinRequestDto
     public string playerId;
     public string token;
     public string roomId;// 要加入的房间
+    public string mode;  // coop / pvp
+    public int maxPlayers;
     public float x, y, z;// 客户端当前坐标
 }
 
@@ -40,6 +42,12 @@ public class PlayerStateDto
     public string anim = "Idle";
     public int animId;
     public int weaponId;
+    public int team;        // 0=进攻 1=防守 -1=合作
+    public int matchCoins;
+    public int characterId;
+    public int armor;
+    public int matchWeaponId;
+    public int matchWeaponDamage;
     public int hp;
 }
 
@@ -107,6 +115,7 @@ public class DamageResultDto
     public int targetId;
     public int damage;
     public int targetHp;
+    public int targetArmor;
     public bool isKill;
     public float hitX, hitY, hitZ;
 }
@@ -191,4 +200,141 @@ public class BuyResultDto
     public int coinsLeft;
     public int myHp;
     public int price;
+}
+
+/// <summary>战术模式回合状态</summary>
+[Serializable]
+public class RoundStateDto
+{
+    public int phase;        // 0=准备 1=购买 2=战斗 3=结算
+    public int round;
+    public int timeLeftMs;
+    public int attackScore;
+    public int defenseScore;
+    public bool matchOver;
+}
+
+/// <summary>大厅里的一个玩家</summary>
+[Serializable]
+public class LobbyPlayerDto
+{
+    public int id;
+    public string name;
+    public int team;     // 0=我方 1=敌方
+    public int slot;
+    public bool ready;
+}
+
+/// <summary>准备大厅状态</summary>
+[Serializable]
+public class LobbyStateDto
+{
+    public string roomId;
+    public int hostId;
+    public int capacity;   // 2 / 4 / 6
+    public bool started;
+    public List<LobbyPlayerDto> players = new List<LobbyPlayerDto>();
+}
+
+[Serializable]
+public class MoveSlotDto { public int team; public int slot; }
+
+[Serializable]
+public class SwapRequestDto { public int targetId; }
+
+[Serializable]
+public class SwapIncomingDto
+{
+    public int requesterId;
+    public string requesterName;
+    public int requestId;
+    public int expiresInMs;
+}
+
+[Serializable]
+public class SwapResponseDto
+{
+    public int requestId;
+    public bool accept;
+}
+
+[Serializable]
+public class SwapResultDto
+{
+    public bool accepted;
+    public string reason;
+}
+
+[Serializable]
+public class SelectCharacterDto { public int characterId; }
+
+[Serializable]
+public class CharacterSelectPlayerDto
+{
+    public int id;
+    public string name;
+    public int characterId;
+    public bool confirmed;
+}
+
+[Serializable]
+public class CharacterSelectStateDto
+{
+    public int timeLeftMs;
+    public List<CharacterSelectPlayerDto> players = new List<CharacterSelectPlayerDto>();
+}
+
+[Serializable]
+public class BuyItemDto
+{
+    public int itemId;
+    public string category;
+    public int matchDamage;
+    public int matchPrice;
+    public int matchFireIntervalMs;
+}
+
+[Serializable]
+public class BuyItemResultDto
+{
+    public bool success;
+    public int itemId;
+    public string msg;
+    public int coins;
+    public int armor;
+    public int matchWeaponId;
+    public int matchDamage;
+    public int hp;
+}
+
+[Serializable]
+public class MatchResultPlayerDto
+{
+    public int id;
+    public string name;
+    public int team;
+    public int kills;
+    public int deaths;
+    public int assists;
+}
+
+[Serializable]
+public class MatchResultDto
+{
+    public int attackScore;
+    public int defenseScore;
+    public int winnerTeam;
+    public List<MatchResultPlayerDto> players = new List<MatchResultPlayerDto>();
+}
+
+[Serializable]
+public class SpikeStateDto
+{
+    public bool planted;
+    public int spikeState;   // 0=地上 1=被携带 2=已下包
+    public int carrierId;
+    public float x, y, z;
+    public int fuseLeftMs;
+    public int plantProgressMs;
+    public int defuseProgressMs;
 }

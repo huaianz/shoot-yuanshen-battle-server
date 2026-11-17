@@ -8,6 +8,7 @@ public class ServerEnemy
     public string RoomId;
     public int Kind;              // 0=近战 1=远程 2=史莱姆
     public bool IsElite;
+    public bool IsBoss;
     public Vector3 SpawnPos;
     public Vector3 Pos;
     public float Yaw;
@@ -99,18 +100,20 @@ public static class ServerEnemyRegistry
         int count = WaveSizeFor(wave);
         int hp = HpFor(wave);
         bool eliteWave = wave % 3 == 0;   // 每 3 波出精英
+        bool bossWave = wave % 5 == 0;    // 每 5 波出 BOSS
 
         for (int i = 0; i < count; i++)
         {
             bool isElite = eliteWave && i == count - 1;   // 最后一只当精英
+            bool isBoss = bossWave && i == count - 1;     // BOSS 波最后一只
 
             if (i < list.Count && _byId.TryGetValue(list[i], out var exist))
             {
-                ResetEnemy(exist, center, i, hp, isElite);
+                ResetEnemy(exist, center, i, hp, isElite, isBoss);
                 continue;
             }
 
-            var created = CreateEnemy(roomId, center, i, hp, isElite);
+            var created = CreateEnemy(roomId, center, i, hp, isElite, isBoss);
             list.Add(created.Id);
         }
 
@@ -124,7 +127,8 @@ public static class ServerEnemyRegistry
         }
 
         BroadcastWave(roomId, count, false, 0, wave, count);
-        Debug.Log($"[ServerEnemy] 房间 {roomId} 第 {wave} 波: {count} 只, 基础 HP={hp}{(eliteWave ? " [含精英]" : "")}");
+        Debug.Log($"[ServerEnemy] 房间 {roomId} 第 {wave} 波: {count} 只, 基础 HP={hp}" +
+                  $"{(eliteWave ? " [含精英]" : "")}{(bossWave ? " [BOSS]" : "")}");
     }
 
     public static void Tick(float dt)
@@ -315,7 +319,7 @@ public static class ServerEnemyRegistry
     }
 
     // ===== 工厂与工具 =====
-    private static ServerEnemy CreateEnemy(string roomId, Vector3 center, int index, int baseHp, bool isElite)
+    private static ServerEnemy CreateEnemy(string roomId, Vector3 center, int index, int baseHp, bool isElite, bool isBoss)
     {
         int id = ++_nextId;
         Vector3 spawn = SpawnPosFor(center, index);
@@ -326,31 +330,33 @@ public static class ServerEnemyRegistry
             RoomId = roomId,
             Kind = index % 3,
             IsElite = isElite,
+            IsBoss = isBoss,
             SpawnPos = spawn,
             Pos = spawn
         };
-        ApplyKindStats(e, baseHp, isElite);
+        ApplyKindStats(e, baseHp, isElite, isBoss);
         _byId[id] = e;
         return e;
     }
 
-    private static void ResetEnemy(ServerEnemy e, Vector3 center, int index, int baseHp, bool isElite)
+    private static void ResetEnemy(ServerEnemy e, Vector3 center, int index, int baseHp, bool isElite, bool isBoss)
     {
         e.SpawnPos = SpawnPosFor(center, index);
         e.Pos = e.SpawnPos;
         e.Kind = index % 3;
         e.IsElite = isElite;
+        e.IsBoss = isBoss;
         e.State = 0;
         e.Yaw = 0f;
         e.TargetPlayerId = -1;
         e.LastAttackMs = 0;
-        ApplyKindStats(e, baseHp, isElite);
+        ApplyKindStats(e, baseHp, isElite, isBoss);
     }
 
     /// <summary>
     /// 按种类套用属性; baseHp 是波次基础血量
     /// </summary>
-    private static void ApplyKindStats(ServerEnemy e, int baseHp, bool isElite)
+    private static void ApplyKindStats(ServerEnemy e, int baseHp, bool isElite, bool isBoss)
     {
         switch (e.Kind)
         {

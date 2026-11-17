@@ -20,6 +20,27 @@ public static class BattleMsgId
     public const int BuyResult = 413;     // S→C 购买结果
     public const int StartWave = 414;     // C→S 请求开始挑战(刷第一波)
     public const int PlayerShot = 415;    // S→C 玩家开火弹道(给别人看)
+    public const int RoundState = 417;    // S→C 回合状态
+    public const int LobbyState = 418;    // S→C 准备大厅状态
+    public const int SetReady = 419;      // C→S 切换准备
+    public const int StartMatch = 420;    // C→S 房主开始比赛
+    public const int MoveSlot = 421;       // C→S 移动到空席位
+    public const int SwapRequest = 422;    // C→S 请求换位
+    public const int SwapIncoming = 423;   // S→C 收到换位请求
+    public const int SwapResponse = 424;   // C→S 同意/拒绝换位
+    public const int SwapResult = 425;     // S→C 换位结果
+    public const int SelectCharacter = 426;      // C→S 选择角色
+    public const int ConfirmCharacter = 427;     // C→S 确认角色
+    public const int CharacterSelectState = 428; // S→C 选角状态
+    public const int BuyItem = 429;              // C→S 购买
+    public const int BuyItemResult = 430;        // S→C 购买结果
+    public const int MatchResult = 431;          // S→C 比赛结算
+    public const int ReturnToLobby = 432;        // C→S 结算后返回房间
+    public const int PlantSpike = 433;           // C→S 按住下包
+    public const int DefuseSpike = 434;          // C→S 按住拆包
+    public const int SpikeState = 435;           // S→C 炸弹状态
+    public const int PickupSpike = 436;          // C→S 拾取包
+    public const int DropSpike = 437;            // C→S 丢弃包
 }
 
 public static class BattlePack

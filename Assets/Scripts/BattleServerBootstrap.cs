@@ -17,7 +17,9 @@ public static class BattleServerBootstrap
         net.StartServer(port);
         Debug.Log($"[BattleServer] tickRate={loop.tickRate}, port={port}");
         // 命令行加 -norewind 关闭延迟补偿(做对比实验用)
-        foreach (string a in System.Environment.GetCommandLineArgs())
+        string[] startupArgs = System.Environment.GetCommandLineArgs();
+
+        foreach (string a in startupArgs)
         {
             if (a == "-norewind")
             {
@@ -29,6 +31,33 @@ public static class BattleServerBootstrap
                 ServerWorld.PvPDeathEnabled = false;
                 Debug.Log("[BattleServer] PvP 不死模式已开启(-nopvpdeath)");
             }
+        }
+
+        // -plantsite x,y,z [-plantradius 3]
+        for (int i = 0; i < startupArgs.Length - 1; i++)
+        {
+            if (startupArgs[i] != "-plantsite") continue;
+
+            string[] parts = startupArgs[i + 1].Split(',');
+            if (parts.Length != 3
+                || !float.TryParse(parts[0], out float x)
+                || !float.TryParse(parts[1], out float y)
+                || !float.TryParse(parts[2], out float z))
+            {
+                Debug.LogWarning("[BattleServer] -plantsite 格式错误, 应为 x,y,z");
+                break;
+            }
+
+            float radius = 3f;
+            if (i + 3 < startupArgs.Length
+                && startupArgs[i + 2] == "-plantradius"
+                && float.TryParse(startupArgs[i + 3], out float r))
+            {
+                radius = r;
+            }
+
+            ServerWorld.SetPlantSite(new Vector3(x, y, z), radius);
+            break;
         }
         Debug.Log($"[BattleServer] RewindEnabled={ServerWorld.RewindEnabled}");
         Debug.Log($"[BattleServer] PvPDeathEnabled={ServerWorld.PvPDeathEnabled}");
